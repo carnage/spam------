@@ -48,5 +48,26 @@ class SpamLib_Scanner
 		return $this->_scans;
 	}
 	
+	public function setConfig(Zend_Config $config)
+	{
+		return $this->setOptions($config->toArray());
+	}
 	
+	public function setOptions(array $options)
+	{
+		if (array_key_exists('scans', $options)) {
+			foreach ($options['scans'] AS $scan) {
+				if (is_array($scan)) {
+					$scanObject = new $scan['class']();
+					$scanObject->setOptions($scan['options']);
+				} else {
+					$scanObject = new $scan();
+				}
+				
+				$this->addScan($scanObject);
+			}
+		}
+		
+		return $this;
+	}
 }
