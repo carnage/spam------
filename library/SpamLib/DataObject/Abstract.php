@@ -1,7 +1,7 @@
 <?php
 class SpamLib_DataObject_Abstract
 {
-	protected $_data;
+	protected $_data = array();
 	protected $_validfields;
 	
 	public function __get($name)
@@ -14,7 +14,7 @@ class SpamLib_DataObject_Abstract
 	
 	public function __set($name, $value)
 	{
-		if (array_key_exists($name, $this->_validfields)) {
+		if (in_array($name, $this->_validfields)) {
 			$this->_data[$name] = $value;
 		}
 		
