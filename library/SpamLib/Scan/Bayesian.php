@@ -1,22 +1,14 @@
 <?php
 class SpamLib_Scan_Bayesian extends SpamLib_Scan_Abstract implements SpamLib_Scan_Post_Interface
 {
-	protected $_corpusLimit = 3;
 	protected $_hamCorpus = array();
-	protected $_hamCorpusSize = 0;
 	protected $_spamCorpus = array();
-	protected $_spamCorpusSize = 0;
+	protected $_spamCorpusMinSize = 0;
+	protected $_hamCorpusMinSize = 0;
+	protected $_corpusMinSize = 0;
+	protected $_forceTrainingMode = false;
 	
-	protected function _tokenise($text)
-	{
-		$filter = new Zend_Filter_Alnum(true);
-		$text = $filter->filter($text);
 	
-		$tokens = explode(' ', $text);
-	
-		return $tokens;
-	}
-		
 	/**
 	 * Should return probability of word appearing in spam / prob of word in a post (eg notspam + spam probs)
 	 * 
@@ -25,8 +17,8 @@ class SpamLib_Scan_Bayesian extends SpamLib_Scan_Abstract implements SpamLib_Sca
 	 */
 	protected function _getTokenScore($token) 
 	{
-		$hamScore = $this->_getHamProb($token);
-		$spamScore = $this->_getSpamProb($token);
+		$hamScore = $this->getHamCorpus()->getProb($token);
+		$spamScore = $this->getSpamCorpus()->getProb($token);
 		
 		if ($spamScore == 0 && $hamScore == 0) {
 			return 0.4; //not seen before.
@@ -39,31 +31,14 @@ class SpamLib_Scan_Bayesian extends SpamLib_Scan_Abstract implements SpamLib_Sca
 		
 	}
 	
-	protected function _getHamProb($token)
+	public function isTrainingMode()
 	{
-		if (
-				$this->_hamCorpusSize > 0 && 
-				array_key_exists($token, $this->_hamCorpus) &&
-				$this->_hamCorpus[$token] > $this->_corpusLimit
-			) {
-			return bcdiv($this->_hamCorpus[$token], $this->_hamCorpusSize);
-		}
-		
-		return 0;
+		return $this->getForceTrainingMode() || (
+			$this->getSpamCorpus()->getCorpusSize() < $this->_spamCorpusMinSize ||
+			$this->getHamCorpus()->getCorpusSize() < $this->_hamCorpusMinSize ||
+			$this->getHamCorpus()->getCorpusSize() + $this->getSpamCorpus()->getCorpusSize() < $this->_corpusMinSize
+		);
 	}
-	
-	protected function _getSpamProb($token)
-	{
-		if (
-				$this->_spamCorpusSize > 0 && 
-				array_key_exists($token, $this->_spamCorpus) &&
-				$this->_spamCorpus[$token] > $this->_corpusLimit
-			) {
-			return bcdiv($this->_spamCorpus[$token], $this->_spamCorpusSize);
-		}
-	
-		return 0;
-	}	
 	
 	public function getHamCorpus()
 	{
@@ -75,24 +50,66 @@ class SpamLib_Scan_Bayesian extends SpamLib_Scan_Abstract implements SpamLib_Sca
 		return $this->_spamCorpus;
 	}
 	
-	public function setHamCorpus(array $corpus)
+	public function setHamCorpus(SpamLib_Scan_Bayesian_Corpus $corpus)
 	{
 		$this->_hamCorpus = $corpus;
-		$this->_hamCorpusSize = array_sum($corpus);
 		return $this;
 	}
 	
-	public function setSpamCorpus(array $corpus)
+	public function setSpamCorpus(SpamLib_Scan_Bayesian_Corpus $corpus)
 	{
 		$this->_spamCorpus = $corpus;
-		$this->_spamCorpusSize = array_sum($corpus);
+		return $this;
+	}
+	
+	public function setCorpusMinSize($size)
+	{
+		$this->_corpusMinSize = $size;
+		return $this;
+	}
+	
+	public function setHamCorpusMinSize($size)
+	{
+		$this->_hamCorpusMinSize = $size;
+		return $this;
+	}
+
+	public function setSpamCorpusMinSize($size)
+	{
+		$this->_spamCorpusMinSize = $size;
+		return $this;
+	}
+
+	public function getCorpusMinSize()
+	{
+		return $this->_corpusMinSize;
+	}
+
+	public function getSpamCorpusMinSize()
+	{
+		return $this->_spamCorpusMinSize;
+	}
+
+	public function getHamCorpusMinSize()
+	{
+		return $this->_hamCorpusMinSize;
+	}	
+	
+	public function getForceTrainingMode()
+	{
+		return $this->_forceTrainingMode;
+	}
+	
+	public function setForceTrainingMode($mode = true)
+	{
+		$this->_forceTrainingMode = $mode;
 		return $this;
 	}
 	
 	public function scanPost(SpamLib_Post_Abstract $post)
 	{
 		$text = $post->subject . ' ' . $post->body;
-		$tokens = $this->_tokenise($text);
+		$tokens = SpamLib_Scan_Bayesian_Corpus::tokenise($text);
 		
 		$interestingTokens = array();
 		$interestThreashold = 0;
@@ -134,6 +151,12 @@ class SpamLib_Scan_Bayesian extends SpamLib_Scan_Abstract implements SpamLib_Sca
 			$postScore = bcdiv($total, bcadd($total, $antiTotal));
 		}
 		
+		if ($this->isTrainingMode()) {
+			$this->_log($text, $postScore);
+			//in training mode always return 0
+			return 0;
+		}
+		
 		if (bccomp(0.9, $postScore) < 1) {
 			//postscore > 0.9
 			return 10;
@@ -145,60 +168,70 @@ class SpamLib_Scan_Bayesian extends SpamLib_Scan_Abstract implements SpamLib_Sca
 	public function setOptions(array $options)
 	{
 		if (array_key_exists('spamCorpus', $options)) {
-			$this->setSpamCorpus($options['spamCorpus']);
+			if (is_array($options['spamCorpus'])) {
+				if (array_key_exists('class', $options['spamCorpus'])) {
+					$spamCorpus = new $options['spamCorpus']['class']();
+				} else {
+					throw new Exception ('invalid options');
+				}
+				if (array_key_exists('options', $options['spamCorpus'])) {
+					$spamCorpus->setOptions($options['spamCorpus']['options']);
+				}
+				
+				$this->setSpamCorpus($spamCorpus);
+				unset($spamCorpus);
+			} else {
+				$this->setSpamCorpus($options['spamCorpus']);
+			}
+			
 			unset($options['spamCorpus']);
 		}
 		if (array_key_exists('hamCorpus', $options)) {
-			$this->setSpamCorpus($options['hamCorpus']);
+			if (is_array($options['hamCorpus'])) {
+				if (array_key_exists('class', $options['hamCorpus'])) {
+					$hamCorpus = new $options['hamCorpus']['class']();
+				} else {
+					throw new Exception ('invalid options');
+				}
+				if (array_key_exists('options', $options['hamCorpus'])) {
+					$hamCorpus->setOptions($options['hamCorpus']['options']);
+				}
+				
+				$this->setHamCorpus($hamCorpus);
+				unset($hamCorpus);
+			} else {
+				$this->setHamCorpus($options['hamCorpus']);
+			}
 			unset($options['hamCorpus']);
+		}
+		
+		if (array_key_exists('spamCorpusMinSize', $options)) {
+			$this->setSpamCorpusMinSize($options['spamCorpusMinSize']);
+			unset($optioins['spamCorpusMinSize']);
+		}
+
+		if (array_key_exists('hamCorpusMinSize', $options)) {
+			$this->setHamCorpusMinSize($options['hamCorpusMinSize']);
+			unset($optioins['hamCorpusMinSize']);
+		}
+
+		if (array_key_exists('corpusMinSize', $options)) {
+			$this->setCorpusMinSize($options['corpusMinSize']);
+			unset($optioins['corpusMinSize']);
+		}		
+		
+		if (array_key_exists('forceTrainingMode', $options)) {
+			$this->setForceTrainingMode($options['forceTrainingMode']);
+			unset($options['forceTrainingMode']);
 		}
 		
 		return parent::setOptions($options);
 	}
 	
-	protected function _learn($text, $outcome = 'spam')
+	protected function _log($text, $score) 
 	{
-		$tokens = $this->_tokenise($text);
-
-		if ($outcome == 'spam') {
-			$corpus = $this->getSpamCorpus();
-		} else {
-			$corpus = $this->getHamCorpus();
-		}
-		
-		foreach ($tokens AS $token) {
-			if (array_key_exists($corpus, $token)) {
-				$corpus[$token]++;
-			} else {
-				$corpus[$token] = 1;
-			}
-		}
-		
-		if ($outcome == 'spam') {
-			$this->setSpamCorpus($corpus);
-		} else {
-			$this->setHamCorpus($corpus);
-		}	
-		
-		return $this;	
-	}
-	
-	public function train(array $spam, array $ham) 
-	{
-		foreach ($spam as $post) {
-			if ($post instanceof SpamLib_Post_Abstract) {
-				$this->_learn($post->subject . ' ' . $post->body, 'spam');
-			} else {
-				$this->_learn($post, 'spam');
-			}
-		}
-		
-		foreach ($ham as $post) {
-			if ($post instanceof SpamLib_Post_Abstract) {
-				$this->_learn($post->subject . ' ' . $post->body, 'ham');
-			} else {
-				$this->_learn($post, 'ham');
-			}
-		}		
+		$h = fopen(BASE_PATH . DIRECTORY_SEPARATOR . 'log.xml', 'a');
+		fwrite($h, '<entry><text>' . $text . '</text><score>' . $score . '</score></entry>');
+		fclose($h);
 	}
 }

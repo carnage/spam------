@@ -19,6 +19,14 @@ $config = array(
 				'overwrite'=>true,
 				'keywords' => array('test', 'testing')
 			)
+		),
+		array (
+			'class' => 'SpamLib_Scan_Bayesian',
+			'options' => array(
+				'forceTrainingMode' => true,
+				'hamCorpus' => new SpamLib_Scan_Bayesian_Corpus(),
+				'spamCorpus' => new SpamLib_Scan_Bayesian_Corpus(),
+			)
 		)
 	),
 );
