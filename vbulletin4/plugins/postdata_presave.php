@@ -1,16 +1,6 @@
 <?php
 include_once '/home/giveup/public_html/cpfm/Spam******/Bootstrap.php';
 
-$post = new SpamLib_Post();
-$user = new SpamLib_User();
-
-$post->subject = $this->post['title'];
-$post->body = $this->post['pagetext'];
-
-$user->username = $this->post['username'];
-
-//$scannerConfig = new Zend_Config_Xml('standard.xml');
-
 $config = array(
 	'scans'=> array(
 		array(
@@ -31,10 +21,11 @@ $config = array(
 	),
 );
 
-$scanner = new SpamLib_Scanner();
-$scanner->setOptions($config);
-
-$score = $scanner->scan($post, $user);
+$engine = new SpamLib_Engine_Vbulletin4($config);
+$engine->setPost($this);
+if ($engine->run()) {
+	//take anti spam action.
+}
 
 echo $score;
 

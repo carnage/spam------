@@ -147,8 +147,9 @@ class SpamLib_Scan_Bayesian extends SpamLib_Scan_Abstract implements SpamLib_Sca
 				$total = bcadd($total, $token['score']);
 				$antiTotal = bcadd($antiTotal, bcsub(1, $token['score']));
 			}
-			
-			$postScore = bcdiv($total, bcadd($total, $antiTotal));
+			if ($total > 0) {
+				$postScore = bcdiv($total, bcadd($total, $antiTotal));
+			}
 		}
 		
 		if ($this->isTrainingMode()) {
