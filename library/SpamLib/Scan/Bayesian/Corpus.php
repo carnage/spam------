@@ -10,8 +10,7 @@ class SpamLib_Scan_Bayesian_Corpus
 	{
 		$filter = new Zend_Filter_Alnum(true);
 		$text = $filter->filter($text);
-	
-		$tokens = explode(' ', $text);
+		$tokens = preg_split("/[\s]+/", $text, null, PREG_SPLIT_NO_EMPTY);
 	
 		return $tokens;
 	}	
@@ -76,7 +75,7 @@ class SpamLib_Scan_Bayesian_Corpus
 		$corpus = $this->getCorpus();
 	
 		foreach ($tokens AS $token) {
-			if (array_key_exists($corpus, $token)) {
+			if (array_key_exists($token, $corpus)) {
 				$corpus[$token]++;
 			} else {
 				$corpus[$token] = 1;
@@ -132,14 +131,16 @@ class SpamLib_Scan_Bayesian_Corpus
 	public function save()
 	{
 		$data = var_export($this->getCorpus(), true);
-		file_put_contents(BASE_PATH . DIRECTORY_SEPARATOR . $this->getFilename(), '<?php return ' . $data);
+		file_put_contents(BASE_PATH . DIRECTORY_SEPARATOR . $this->getFilename(), '<?php return ' . $data . ';');
 		return $this;
 	}
 	
 	public function load()
 	{
 		$data = include BASE_PATH . DIRECTORY_SEPARATOR . $this->getFilename();
-		$this->setCorpus($data);
+		if (is_array($data)) {
+			$this->setCorpus($data);
+		}
 		return $this;
 	}
 }
