@@ -1,5 +1,5 @@
 <?php
-abstract class SpamLib_Engine_Abstract
+abstract class SpamLib_Service_Scanpost_Abstract
 {
 	protected $_config;
 	protected $_post;
@@ -33,4 +33,14 @@ abstract class SpamLib_Engine_Abstract
 		
 		return false;
 	}	
+	
+	public function getPost()
+	{
+		return $this->_post;
+	}
+	
+	public function getUser()
+	{
+		return $this->_user;
+	}
 }

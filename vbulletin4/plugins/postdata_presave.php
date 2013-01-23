@@ -21,8 +21,8 @@ $config = array(
 	),
 );
 
-$engine = new SpamLib_Engine_Vbulletin4($config);
-$engine->setPost($this);
+$engine = new SpamLib_Service_Scanpost_Vbulletin4($config);
+$engine->setPostData($this);
 if ($engine->run()) {
 	//take anti spam action.
 }
