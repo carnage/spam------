@@ -1,5 +1,5 @@
 <?php
-class SpamLib_Service_Scanpost_Vbulletin4 extends SpamLib_Engine_Abstract
+class SpamLib_Service_Scanner_Vbulletin4 extends SpamLib_Service_Scanner_Abstract
 {
 	public function setPostData($postData)
 	{

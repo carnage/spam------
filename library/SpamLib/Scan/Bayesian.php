@@ -1,5 +1,5 @@
 <?php
-class SpamLib_Scan_Bayesian extends SpamLib_Scan_Abstract implements SpamLib_Scan_Post_Interface
+class SpamLib_Scan_Bayesian extends SpamLib_Scan_Abstract
 {
 	protected $_hamCorpus = array();
 	protected $_spamCorpus = array();
@@ -106,8 +106,10 @@ class SpamLib_Scan_Bayesian extends SpamLib_Scan_Abstract implements SpamLib_Sca
 		return $this;
 	}
 	
-	public function scanPost(SpamLib_Post_Abstract $post)
+	public function scan()
 	{
+		$post = $this->getPost();
+		
 		$text = $post->subject . ' ' . $post->body;
 		$tokens = SpamLib_Scan_Bayesian_Corpus::tokenise($text);
 		

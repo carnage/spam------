@@ -1,5 +1,5 @@
 <?php
-class SpamLib_Scan_Keyword extends SpamLib_Scan_Abstract implements SpamLib_Scan_Post_Interface
+class SpamLib_Scan_Keyword extends SpamLib_Scan_Abstract
 {
 	protected $_keywords = array(
 		'ugg',
@@ -52,8 +52,10 @@ class SpamLib_Scan_Keyword extends SpamLib_Scan_Abstract implements SpamLib_Scan
 		return parent::setOptions($options);
 	}
 	
-	public function scanPost(SpamLib_Post_Abstract $post)
+	public function scan()
 	{
+		$post = $this->getPost();
+		
 		//niave keyword search
 		$score = 0;
 		foreach($this->getKeywords() AS $keyword) {

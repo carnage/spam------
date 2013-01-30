@@ -90,7 +90,7 @@ class SpamLib_Scan_Bayesian_Corpus
 	public function train(array $data)
 	{
 		foreach ($data as $post) {
-			if ($post instanceof SpamLib_Post_Abstract) {
+			if ($post instanceof SpamLib_DataObject_Post) {
 				$this->_learn($post->subject . ' ' . $post->body);
 			} else {
 				$this->_learn($post);

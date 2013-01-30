@@ -1,21 +1,25 @@
 <?php
-class SpamLib_Scanner
+class SpamLib_Scan_Composite extends SpamLib_Scan_Abstract
 {
 	protected $_scans;
 	
-	public function scan(SpamLib_Post_Abstract $post, SpamLib_User_Abstract $user)
+	public function scan()
 	{
 		$score = 0;
 		$scans = $this->getScans();
 		
 		if (is_array($this->getScans())) {
+			$user = $this->getUser();
+			$post = $this->getPost();
 			foreach ($this->getScans() AS $scan) {
-				if ($scan instanceof SpamLib_Scan_Post_Interface) {
-					$score += $scan->scanPost($post);
+				if (!is_null($user)) {
+					$scan->setUser($user);
 				}
-				if ($scan instanceof SpamLib_Scan_User_Interface) {
-					$score += $scan->scanUser($user);
+				if (!is_null($post)) {
+					$scan->setPost($post);
 				}
+				
+				$score += $scan->scan();
 			}
 		}
 		
